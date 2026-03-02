@@ -134,7 +134,7 @@ def main():
                 if item_name:
                     new_anchors = generate_text_anchors(item_name, azure_data)
                     if new_anchors:
-                        item['new_text_anchors'] = new_anchors
+                        item['text_anchors'] = new_anchors
                     
         # Output to new filename
         output_path = 'Data/Tickets/29212/extract_enriched.json'

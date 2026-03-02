@@ -37,10 +37,10 @@ SECTION_COMPARE_KEYS = ["section_name", "section_preamble", "section_type"]
 ITEM_COMPARE_KEYS = [
     "name",
     "description",
+    "text_anchors",
     "type",
     "availability",
     "sizes",
-    "text_anchors",
 ]
 TEXT_ANCHOR_EXCLUDE = {"bounding_box"}  # excluded inside each text_anchor object
 
@@ -110,9 +110,14 @@ def compare_values(key: str, va: Any, vb: Any) -> list[str]:
     Returns list of diff strings; empty if identical.
     """
     if key == "text_anchors":
-        if not isinstance(va, list):
+        # text_anchors can be a single dict OR a list of dicts
+        if isinstance(va, dict):
+            va = [va]
+        elif not isinstance(va, list):
             va = []
-        if not isinstance(vb, list):
+        if isinstance(vb, dict):
+            vb = [vb]
+        elif not isinstance(vb, list):
             vb = []
         return compare_text_anchors(va, vb)
 
