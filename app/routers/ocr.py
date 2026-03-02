@@ -5,6 +5,7 @@ from fastapi import APIRouter, File, HTTPException, UploadFile
 
 from app.services.azure_service import analyze_document
 from app.services.json_service import enrich_json
+from app.services.merge import merge_json_data
 
 logger = logging.getLogger(__name__)
 
@@ -72,3 +73,36 @@ async def process_json(
         raise HTTPException(status_code=500, detail=f"Enrichment error: {exc}") from exc
 
     return enriched
+
+
+@router.post("/merge-jsons")
+async def merge_jsons(
+    file1: UploadFile = File(..., description="JSON file 1 (required)"),
+    file2: UploadFile | None = File(None, description="JSON file 2 (optional)"),
+    file3: UploadFile | None = File(None, description="JSON file 3 (optional)"),
+    file4: UploadFile | None = File(None, description="JSON file 4 (optional)"),
+    file5: UploadFile | None = File(None, description="JSON file 5 (optional)"),
+) -> dict:
+    """
+    Accept up to **5** JSON files and return a single merged list.
+
+    Each entry is tagged with a ``_source_file`` field containing the
+    original filename.
+
+    - **file1** (required) – **file5** (optional): ``.json`` upload files
+    """
+    uploads = [f for f in (file1, file2, file3, file4, file5) if f is not None]
+
+    parsed: list = []
+    for upload in uploads:
+        raw = await upload.read()
+        try:
+            parsed.append((json.loads(raw), upload.filename or "unknown.json"))
+        except json.JSONDecodeError as exc:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Invalid JSON in '{upload.filename}': {exc}",
+            ) from exc
+
+    merged = merge_json_data(parsed)
+    return {"merged": merged, "file_count": len(uploads)}

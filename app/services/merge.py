@@ -65,6 +65,35 @@ def merge_json_outputs(
     return merged_paths
 
 
+def merge_json_data(uploads: list[tuple[Any, str]]) -> list[Any]:
+    """
+    Merge a list of ``(parsed_json, filename)`` pairs into a single flat list.
+
+    Each entry is tagged with ``_source_file`` for provenance.
+    Dicts are appended directly; lists are extended item-by-item;
+    scalars are wrapped as ``{"value": ..., "_source_file": ...}``.
+
+    Args:
+        uploads: Sequence of ``(file_data, filename)`` tuples.
+
+    Returns:
+        Merged list of JSON entries.
+    """
+    merged: list[Any] = []
+
+    for file_data, filename in uploads:
+        if isinstance(file_data, dict):
+            _tag_source(file_data, filename)
+            merged.append(file_data)
+        elif isinstance(file_data, list):
+            _tag_source(file_data, filename)
+            merged.extend(file_data)
+        else:
+            merged.append({"value": file_data, "_source_file": filename})
+
+    return merged
+
+
 def _tag_source(data: Any, filename: str) -> None:
     """Inject ``_source_file`` for provenance tracking."""
     if isinstance(data, dict):

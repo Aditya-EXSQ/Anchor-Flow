@@ -45,12 +45,12 @@ async def save_response_to_json(response_data: dict, output_file_path: str) -> N
         await f.write(json.dumps(response_data, indent=4, default=str))
 
 async def main():
-    AZURE_DOCUMENT_ENDPOINT = os.getenv("AZURE_DOCUMENT_ENDPOINT")
-    AZURE_DOCUMENT_KEY = os.getenv("AZURE_DOCUMENT_KEY")
+    AZURE_ENDPOINT = os.getenv("AZURE_DOCUMENT_ENDPOINT")
+    AZURE_KEY = os.getenv("AZURE_DOCUMENT_KEY")
 
     response = await extract_text_from_pdf(
-        endpoint=AZURE_DOCUMENT_ENDPOINT,
-        key=AZURE_DOCUMENT_KEY,
+        endpoint=AZURE_ENDPOINT,
+        key=AZURE_KEY,
         model_id="prebuilt-document",
         file_path="Data/Tickets/29212/Main - Gator's Dockside - Q4'25.pdf"
     )
