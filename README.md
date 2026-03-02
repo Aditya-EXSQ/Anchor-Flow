@@ -8,6 +8,7 @@ A FastAPI service that extracts text from PDF documents using **Azure Document I
 
 - **PDF → OCR** — Upload any PDF and receive the full Azure `analyzeResult` JSON back in one call.
 - **JSON Enrichment** — Pass menu extraction data alongside Azure OCR output to automatically locate each menu item on the page and tag it with a bounding box and quadrant position.
+- **JSON Merging** — Merge up to 5 OCR JSON files into a single flat list via a dedicated endpoint, with per-entry provenance tracking via `_source_file`.
 - **Modular architecture** — Clean separation between routing, service logic, and configuration.
 - **Async throughout** — Built on `asyncio`, `httpx`, and `aiofiles` for non-blocking I/O.
 
@@ -26,7 +27,7 @@ app/
     ├── azure_service.py      # httpx-based Azure Document Intelligence client
     ├── extraction.py         # SDK-based OCR extraction + file saving
     ├── batch_processor.py    # Batch PDF → OCR for entire ticket directories
-    ├── merge.py              # Merges per-PDF JSONs into per-ticket archives
+    ├── merge.py              # Merges per-PDF JSONs into per-ticket archives + API-level merge
     ├── enrichment.py         # Quadrant + bounding-box calculation
     └── json_service.py       # Enrichment orchestration (used by the API)
 
@@ -34,8 +35,7 @@ Scripts/                      # Original standalone scripts (not used by the API
 ├── AzureTextExtraction.py
 ├── ProcessPDF's.py
 ├── MergeJSON.py
-├── CalculateQuadrant.py
-└── TweakedCalculateQuadrant.py
+└── TextAnchor.py             # Standalone text-anchor generation + quadrant logic
 
 Data/
 ├── Tickets/                  # Input PDFs, organised by ticket ID
@@ -51,6 +51,7 @@ Data/
 |--------|-------|-------------|
 | `POST` | `/api/upload-document` | Upload a PDF → returns Azure `analyzeResult` JSON |
 | `POST` | `/api/process-json` | Enrich menu JSON with bounding boxes and quadrants |
+| `POST` | `/api/merge-jsons` | Merge up to 5 OCR JSON files into one list |
 | `GET`  | `/health` | Health check |
 
 ### `POST /api/upload-document`
@@ -65,18 +66,47 @@ Data/
 
 ### `POST /api/process-json`
 
-**Input JSON:**
-```json
-{
-  "existing_json": { "menu_sections": [ ... ] },
-  "azure_json": [ ... ]
-}
-```
+**Input:** `multipart/form-data` with two JSON file fields:
+
+| Field | Description |
+|-------|-------------|
+| `existing_json` | Menu extraction data (`extract.json` structure) |
+| `azure_json` | Merged Azure OCR output |
 
 **Flow:**
 1. For each menu item `name`, fuzzy-searches the Azure OCR data for the best matching text block.
 2. Computes the page quadrant (Top-Left=1, Top-Right=2, Bottom-Left=3, Bottom-Right=4) from the bounding box centroid.
-3. Returns the enriched JSON with `text_anchors` populated on each item.
+3. Returns a flat mapping of item names to their `text_anchors`:
+
+```json
+{
+  "Margherita Pizza": {
+    "anchor": "Margherita Pizza",
+    "page_index": 1,
+    "quadrant": 2,
+    "bounding_box": [x1, y1, x2, y2, x3, y3, x4, y4],
+    "meta_page_idx": { "page_index": 1, "document": "menu_p1.pdf" }
+  },
+  ...
+}
+```
+
+### `POST /api/merge-jsons`
+
+**Input:** `multipart/form-data` with up to 5 JSON file fields (`file1` … `file5`). Only `file1` is required.
+
+**Flow:**
+1. Parses each uploaded JSON file.
+2. Tags every entry with a `_source_file` field containing the original filename.
+3. Returns a merged list and the number of files processed.
+
+**Response:**
+```json
+{
+  "merged": [ ... ],
+  "file_count": 3
+}
+```
 
 ---
 
