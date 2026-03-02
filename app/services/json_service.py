@@ -5,7 +5,6 @@ Combines menu extraction data with Azure OCR output to produce
 spatially enriched JSON (bounding boxes + quadrant positions).
 """
 
-import copy
 import logging
 from typing import Any
 
@@ -19,27 +18,27 @@ def enrich_json(
     azure_json: Any,
 ) -> dict[str, Any]:
     """
-    Enrich menu extraction data with bounding-box and quadrant information.
+    Generate text_anchor data for each menu item.
 
     Args:
         existing_json: Menu extraction data (``extract.json`` structure).
         azure_json: Merged Azure OCR data (list of documents or single dict).
 
     Returns:
-        A deep copy of *existing_json* with ``text_anchors`` populated.
+        A dict mapping each item name to its generated ``text_anchors``.
     """
-    enriched: dict[str, Any] = copy.deepcopy(existing_json)
-
     azure_data: list[dict[str, Any]] = (
         azure_json if isinstance(azure_json, list) else [azure_json]
     )
 
-    for section in enriched.get("menu_sections", []):
+    result: dict[str, Any] = {}
+
+    for section in existing_json.get("menu_sections", []):
         for item in section.get("menu_items", []):
             item_name: str | None = item.get("name")
             if item_name:
                 anchors = generate_text_anchors(item_name, azure_data)
                 if anchors:
-                    item["text_anchors"] = anchors
+                    result[item_name] = anchors
 
-    return enriched
+    return result
